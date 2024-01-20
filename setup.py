@@ -5,7 +5,7 @@ this_directory = Path(__file__).parent
 long_description = (this_directory / "README.md").read_text()
 
 setup(name='AioKeksik',
-      version='1.2',
+      version='1.0',
       url='https://github.com/Obnovlator3000/AioKeksik',
       license='MIT',
       description='Неофициальная асинхронная библиотека для работы с API https://keksik.io',
