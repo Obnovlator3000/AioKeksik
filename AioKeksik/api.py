@@ -1,59 +1,55 @@
-from types import SimpleNamespace
-import requests
-import json
+from aiohttp import ClientSession
+import ujson
 
-def sendRequestToApi(session, post_args, method):
-    """Отправляет POST запрос с указанными параметрами"""
-    post_data = json.loads(
-        session.post("https://api.keksik.io/"+method,
-        headers={'Content-Type': 'application/json'},
-        json=post_args).text,
-        object_hook=lambda d: SimpleNamespace(**d)
-        )
-    
-    if post_data.success:
-        return post_data.list
-    else:
-        raise Exception(post_data.error, post_data.msg)
+class Requests:
+    session = None
+    def __init__(self) -> None:
+        pass
+
+    async def sendRequest(self, data, method):
+        session = ClientSession(headers={'Content-Type': 'application/json'}, json_serialize=ujson.dumps)
+        async with session as s:
+            async with s.post("https://api.keksik.io/"+method,
+                                    json=data) as conn:
+                responce = ujson.loads((await conn.content.read()).decode())
+                if responce['success']:
+                    return responce
+                else:
+                    raise Exception(responce['error'], responce['msg'])
+
 
 class KeksikApi:
     def __init__(self,
                 group_id=None,
                 token=None,
                 v=1):
-        # Обязательные обьекты
         self.group_id = abs(group_id)
         self.token = str(token)
         self.v = v
-        # HTTP сессия
-        self.Session = requests.Session()
-        
-        # Классы
-        self.donates = self.donates(self.group_id, self.token, self.v, self.Session)
-        self.campaigns = self.campaigns(self.group_id, self.token, self.v, self.Session)
-        self.payments = self.payments(self.group_id, self.token, self.v, self.Session)
-        
-    class donates:
+        self.sendRequest = Requests().sendRequest
+        self.donates = self.donates(self.sendRequest, self.group_id, self.token, self.v)
+        self.campaigns = self.campaigns(self.sendRequest, self.group_id, self.token, self.v)
+        self.payments = self.payments(self.sendRequest, self.group_id, self.token, self.v)
 
+    class donates:
         def __init__(self,
+                     sendRequest,
                 group_id=None,
                 token=None,
-                v=1,
-                session=None):
+                v=1):
             self.group_id = abs(group_id)
             self.token = str(token)
             self.v = v
-            self.Session = session
-            
-
-        def get(self,
+            self.sendRequest = sendRequest
+        
+        async def get(self,
             length=20,
             offset=None,
             start_date=None,
             end_date=None,
             sort=None,
             reverse=None
-            ):
+            ) -> list:
             post_args = {
                 'group':self.group_id,
                 'token':self.token,
@@ -65,19 +61,18 @@ class KeksikApi:
                 'sort':sort,
                 'reverse':reverse
                 }
-            return sendRequestToApi(self.Session, post_args, 'donates/get')
+            return (await self.sendRequest(post_args, 'donates/get'))['list']
         
-        def getLast(self, last=None):
+        async def getLast(self, last=None) -> list:
             post_args = {
                 'group':self.group_id,
                 'token':self.token,
                 'v':self.v,
                 'last':last
                 }
-
-            return sendRequestToApi(self.Session, post_args, 'donates/get-last')
+            return (await self.sendRequest(post_args, 'donates/get-last'))['list']
         
-        def changeStatus(self, id, status):
+        async def changeStatus(self, id, status) -> bool:
             post_args = {
                 'group':self.group_id,
                 'token':self.token,
@@ -86,9 +81,9 @@ class KeksikApi:
                 'status':status
                 }
 
-            return sendRequestToApi(self.Session, post_args, 'donates/change-status')
+            return (await self.sendRequest(post_args, 'donates/change-status'))['success']
         
-        def answer(self, id, answer):
+        async def answer(self, id, answer) -> bool:
             post_args = {
                 'group':self.group_id,
                 'token':self.token,
@@ -97,9 +92,9 @@ class KeksikApi:
                 'answer':answer
                 }
 
-            return sendRequestToApi(self.Session, post_args, 'donates/change-status')
+            return (await self.sendRequest(post_args, 'donates/answer'))['success']
         
-        def changeRewardStatus(self, id, status):
+        async def changeRewardStatus(self, id, status) -> bool:
             post_args = {
                 'group':self.group_id,
                 'token':self.token,
@@ -108,22 +103,20 @@ class KeksikApi:
                 'status':status
                 }
 
-            return sendRequestToApi(self.Session, post_args, 'donates/change-status')
-    
-    class campaigns:
+            return (await self.sendRequest(post_args, 'donates/change-reward-status'))['success']
 
+    class campaigns:
         def __init__(self,
+                     sendRequest,
                 group_id=None,
                 token=None,
-                v=1,
-                session=None):
+                v=1):
             self.group_id = abs(group_id)
             self.token = str(token)
             self.v = v
-            self.Session = session
-            
+            self.sendRequest = sendRequest
         
-        def get(self, ids=None):
+        async def get(self, ids=None) -> list:
             post_args = {
                 'group':self.group_id,
                 'token':self.token,
@@ -131,18 +124,18 @@ class KeksikApi:
                 'ids':ids
                 }
 
-            return sendRequestToApi(self.Session, post_args, 'campaigns/get')
+            return (await self.sendRequest(post_args, 'campaigns/get'))['list']
         
-        def getActive(self):
+        async def getActive(self) -> dict:
             post_args = {
                 'group':self.group_id,
                 'token':self.token,
                 'v':self.v
                 }
 
-            return sendRequestToApi(self.Session, post_args, 'campaigns/get-active')
+            return (await self.sendRequest(post_args, 'campaigns/get-active'))['campaign']
         
-        def getRewards(self, campaign):
+        async def getRewards(self, campaign) -> list:
             post_args = {
                 'group':self.group_id,
                 'token':self.token,
@@ -150,9 +143,9 @@ class KeksikApi:
                 'campaign':campaign
                 }
 
-            return sendRequestToApi(self.Session, post_args, 'campaigns/get-rewards')
+            return (await self.sendRequest(post_args, 'campaigns/get-rewards'))['list']
         
-        def change(self,
+        async def change(self,
             id,
             title=None,
             status=None,
@@ -160,7 +153,7 @@ class KeksikApi:
             point=None,
             start_received=None,
             start_backers=None
-            ):
+            ) -> bool:
             post_args = {
                 'group':self.group_id,
                 'token':self.token,
@@ -174,16 +167,16 @@ class KeksikApi:
                 'start_backers':start_backers
                 }
 
-            return sendRequestToApi(self.Session, post_args, 'campaigns/change')
+            return (await self.sendRequest(post_args, 'campaigns/change'))['success']
         
-        def changeReward(self,
+        async def changeReward(self,
             id,
             title=None,
             desc=None,
             min_donate=None,
             limits=None,
             status=None
-            ):
+            ) -> bool:
             post_args = {
                 'group':self.group_id,
                 'token':self.token,
@@ -196,22 +189,21 @@ class KeksikApi:
                 'status':status
                 }
 
-            return sendRequestToApi(self.Session, post_args, 'campaigns/change-reward')
-    
-    class payments:
+            return (await self.sendRequest(post_args, 'campaigns/change-reward'))['success']
 
+    class payments:
         def __init__(self,
+                     sendRequest,
                 group_id=None,
                 token=None,
-                v=1,
-                session=None):
+                v=1):
             self.group_id = abs(group_id)
             self.token = str(token)
             self.v = v
-            self.Session = session
+            self.sendRequest = sendRequest
             
         
-        def get(self, ids=None):
+        async def get(self, ids=None) -> list:
             post_args = {
                 'group':self.group_id,
                 'token':self.token,
@@ -219,14 +211,14 @@ class KeksikApi:
                 'ids':ids
                 }
 
-            return sendRequestToApi(self.Session, post_args, 'payments/get')
+            return (await self.sendRequest(post_args, 'payments/get'))['list']
         
-        def create(self, 
+        async def create(self, 
             system,
             purse,
             amount,
             name=None
-            ):
+            ) -> int:
             post_args = {
                 'group':self.group_id,
                 'token':self.token,
@@ -237,13 +229,14 @@ class KeksikApi:
                 'amount':amount
                 }
 
-            return sendRequestToApi(self.Session, post_args, 'payments/create')
+            return (await self.sendRequest(post_args, 'payments/create'))['int']
     
-    def balance(self, ):
+    async def balance(self) -> int:
         post_args = {
             'group':self.group_id,
             'token':self.token,
             'v':self.v,
             }
 
-        return sendRequestToApi(self.Session, post_args, 'balance')
+        return (await self.sendRequest(post_args, 'balance'))['balance']
+

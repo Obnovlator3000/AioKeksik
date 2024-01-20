@@ -1,21 +1,23 @@
 # pyKeksik
-Библиотека для взаимодействия с API [Кексика](https://keksik.io)
+Асинхронная библиотека для взаимодействия с API [Кексика](https://keksik.io)
 
 [Официальная документация](https://keksik.io/api)
-Библиотека была написана потому что было нечего делать, обновлять буду постоянно
+Библиотека была написана на основе [библиотеки](https://github.com/Friendosie/pyKeksik) ув. [Friendosie](https://github.com/Friendosie)
 
 # Примеры кода
 ```python
-from pyKeksik import KeksikApi
+from AioKeksik import KeksikApi
+
 keksik_api = KeksikApi(group_id, apikey)
-# Список донатов
-print(keksik_api.donates.get())
-# Список краутфанденговых кампаний
-print(keksik_api.campaigns.get())
-# Список выплат
-print(keksik_api.payments.get())
-# Баланс
-print(keksik_api.balance())
+import asyncio
+async def main():
+    # Список донатов
+    print(await keksik_api.donates.get())
+    # Список краутфанденговых кампаний
+    print(await keksik_api.campaigns.get())
+    # Список выплат
+    print(await keksik_api.payments.get())
+    # Баланс
+    print(await keksik_api.balance())
+asyncio.run(main())
 ```
-# В планах:
- > Реализовать прием callback
